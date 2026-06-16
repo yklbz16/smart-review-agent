@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全科复习智能体 — 系统可视化</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --panel: #1e293b; --border: #334155;
+  --text: #e2e8f0; --dim: #94a3b8; --accent: #38bdf8;
+  --green: #4ade80; --amber: #fbbf24; --red: #f87171;
+  --purple: #c084fc; --pink: #f472b6; --teal: #2dd4bf;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.5; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.3rem; color: var(--accent); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1rem; margin: 12px 0 8px; }
+
+/* Layout */
+.tabs { display: flex; gap: 4px; padding: 16px 24px 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.tab { padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer; border: 1px solid transparent; font-size: 0.9rem; color: var(--dim); transition: all 0.2s; background: var(--panel); }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); background: var(--bg); border-color: var(--border); border-bottom-color: var(--bg); margin-bottom: -1px; }
+main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+
+/* Architecture cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: all 0.2s; }
+.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.card-icon { font-size: 2rem; margin-bottom: 8px; }
+.card h3 { color: var(--accent); margin: 0 0 8px; }
+.card p { color: var(--dim); font-size: 0.9rem; margin: 0 0 12px; }
+.card .cmds { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .cmd { background: rgba(56,189,248,0.15); color: var(--accent); padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-family: 'Fira Code', monospace; }
+
+/* Mermaid container */
+.mermaid-wrap { background: #fff; border-radius: 8px; padding: 20px; margin: 16px 0; overflow-x: auto; }
+
+/* Command tree */
+.tree { font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 2; }
+.tree .root { color: var(--accent); font-weight: bold; }
+.tree .branch { color: var(--purple); margin-left: 1.5em; }
+.tree .leaf { color: var(--dim); margin-left: 3em; }
+.tree .note { color: #64748b; margin-left: 1em; font-style: italic; }
+
+/* Flow steps */
+.flow { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.flow-step { background: rgba(56,189,248,0.1); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; text-align: center; min-width: 120px; }
+.flow-step .num { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+.flow-step .label { font-size: 0.85rem; color: var(--dim); margin-top: 4px; }
+.flow-arrow { color: var(--dim); font-size: 1.5rem; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--accent); font-weight: 600; }
+td { color: var(--text); }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; }
+.tag-g { background: rgba(74,222,128,0.2); color: var(--green); }
+.tag-a { background: rgba(251,191,36,0.2); color: var(--amber); }
+.tag-r { background: rgba(248,113,113,0.2); color: var(--red); }
+.tag-p { background: rgba(192,132,252,0.2); color: var(--purple); }
+
+/* Legend */
+.legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--dim); }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tabs { padding: 8px 12px 0; gap: 2px; }
+  .tab { padding: 8px 12px; font-size: 0.8rem; }
+  main { padding: 12px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .flow { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">🏠 总览</div>
+  <div class="tab" onclick="showTab('commands')">📋 命令树</div>
+  <div class="tab" onclick="showTab('flows')">🔄 交互流程</div>
+  <div class="tab" onclick="showTab('architecture')">🏗️ 架构图</div>
+  <div class="tab" onclick="showTab('files')">📁 文件地图</div>
+  <div class="tab" onclick="showTab('config')">⚙️ 配置面板</div>
+</div>
+
+<main id="main"></main>
+
+<script>
+// ========== Mermaid Init ==========
+mermaid.initialize({ startOnLoad: false, theme: 'default',
+  flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+  mindmap: { useMaxWidth: true }
+});
+
+// ========== Tab Switching ==========
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('main').innerHTML = views[name]();
+  // Re-render mermaid blocks
+  setTimeout(() => {
+    document.querySelectorAll('.mermaid-code').forEach(async (el, i) => {
+      try {
+        const { svg } = await mermaid.render('mermaid-' + name + '-' + i, el.textContent);
+        el.parentElement.innerHTML = svg;
+      } catch(e) { console.error(e); }
+    });
+  }, 10);
+}
+
+// ========== Views ==========
+const views = {
+
+// ─── OVERVIEW ────────────────────────────────
+overview: () => `
+<div class="panel">
+  <h2>📊 全科复习智能体 — 系统总览</h2>
+  <p style="color:var(--dim);margin-bottom:20px">一个学科通用的AI复习助手，提供材料管理、测验抽背、错题追踪、知识总结、进度看板五大模块。</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📚</div>
+      <h3>材料管理</h3>
+      <p>提交课件/笔记/题库，AI自动解析知识点结构，支持 .txt .md .pdf，可按科目自由管理。</p>
+      <div class="cmds">
+        <span class="cmd">add &lt;文件&gt;</span>
+        <span class="cmd">add --text</span>
+        <span class="cmd">list</span>
+        <span class="cmd">delete</span>
+        <span class="cmd">scan</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">✍️</div>
+      <h3>测验抽背</h3>
+      <p>6种出题模式，从概念抽背到综合模拟卷，AI即时评分+纠错，错题自动入库。</p>
+      <div class="cmds">
+        <span class="cmd">concept</span>
+        <span class="cmd">blank</span>
+        <span class="cmd">code</span>
+        <span class="cmd">mixed</span>
+        <span class="cmd">weak</span>
+        <span class="cmd">quick</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">📝</div>
+      <h3>错题追踪</h3>
+      <p>自动记录每次错误，按知识点分类、错误类型标注，精准定位薄弱环节。</p>
+      <div class="cmds">
+        <span class="cmd">list</span>
+        <span class="cmd">review</span>
+        <span class="cmd">stats</span>
+        <span class="cmd">export</span>
+        <span class="cmd">clear</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <h3>知识总结</h3>
+      <p>AI帮你将零散知识点串联成体系化结构：思维导图、速记单、概念对比、知识链。</p>
+      <div class="cmds">
+        <span class="cmd">chapter</span>
+        <span class="cmd">mindmap</span>
+        <span class="cmd">compare</span>
+        <span class="cmd">cheatsheet</span>
+        <span class="cmd">chain</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">📈</div>
+      <h3>进度看板</h3>
+      <p>掌握度热力图、考试倒计时、复习章节清单、AI智能建议下一步。</p>
+      <div class="cmds">
+        <span class="cmd">progress</span>
+        <span class="cmd">set-exam</span>
+        <span class="cmd">schedule</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3>时间场景适配</h3>
+      <p>自动适配冲刺/系统/长期三种备考节奏，配合间隔重复机制。</p>
+      <div style="margin-top:8px">
+        <span class="tag tag-r">1周冲刺</span>
+        <span class="tag tag-a">2-4周系统</span>
+        <span class="tag tag-g">长期备考</span>
+      </div>
+    </div>
+  </div>
+</div>`,
+
+// ─── COMMAND TREE ────────────────────────────
+commands: () => `
+<div class="panel">
+  <h2>📋 完整命令树</h2>
+  <div class="tree">
+<div class="root">/review</div>
+<div class="note">┌─ 无参数 → 显示帮助</div>
+
+<div style="margin-top:12px"><span class="branch">├─ /review:material</span> <span class="tag tag-p">材料管理</span></div>
+<div class="leaf">├─ add &lt;文件路径&gt;</div>
+<div class="leaf">├─ add --text &lt;科目名&gt;</div>
+<div class="leaf">├─ list [科目名]</div>
+<div class="leaf">├─ delete &lt;科目/文件&gt;</div>
+<div class="leaf">└─ scan</div>
+
+<div style="margin-top:12px"><span class="branch">├─ /review:quiz</span> <span class="tag tag-a">测验抽背</span></div>
+<div class="leaf">├─ concept [科目]</div>
+<div class="leaf">├─ blank [科目]</div>
+<div class="leaf">├─ code [科目]</div>
+<div class="leaf">├─ mixed [科目] [题数]</div>
+<div class="leaf">├─ weak [科目]</div>
+<div class="leaf">└─ quick [科目]</div>
+
+<div style="margin-top:12px"><span class="branch">├─ /review:errors</span> <span class="tag tag-r">错题追踪</span></div>
+<div class="leaf">├─ list [科目]</div>
+<div class="leaf">├─ review [科目/知识点]</div>
+<div class="leaf">├─ stats</div>
+<div class="leaf">├─ export [科目]</div>
+<div class="leaf">└─ clear [题目ID]</div>
+
+<div style="margin-top:12px"><span class="branch">├─ /review:summary</span> <span class="tag tag-g">知识总结</span></div>
+<div class="leaf">├─ chapter &lt;科目&gt; &lt;章节&gt;</div>
+<div class="leaf">├─ mindmap [科目]</div>
+<div class="leaf">├─ compare &lt;A&gt; vs &lt;B&gt;</div>
+<div class="leaf">├─ cheatsheet [科目]</div>
+<div class="leaf">└─ chain &lt;科目&gt; &lt;起点&gt;</div>
+
+<div style="margin-top:12px"><span class="branch">└─ /review:progress</span> <span class="tag tag-p">进度管理</span></div>
+<div class="leaf">&nbsp;&nbsp;&nbsp;├─ (无参数) → 显示看板</div>
+<div class="leaf">&nbsp;&nbsp;&nbsp;├─ set-exam &lt;科目&gt; &lt;日期&gt;</div>
+<div class="leaf">&nbsp;&nbsp;&nbsp;└─ schedule → 生成复习计划</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>🎯 快速场景速查</h2>
+  <table>
+    <tr><th>我想做什么</th><th>命令</th></tr>
+    <tr><td>提交课件</td><td><code>/review:material add ~/课件/数据结构.md</code></td></tr>
+    <tr><td>开始抽背概念</td><td><code>/review:quiz concept 数据结构</code></td></tr>
+    <tr><td>生成模拟卷</td><td><code>/review:quiz mixed 数据结构 10</code></td></tr>
+    <tr><td>专攻薄弱点</td><td><code>/review:quiz weak 数据结构</code></td></tr>
+    <tr><td>碎片时间速刷</td><td><code>/review:quiz quick</code></td></tr>
+    <tr><td>查看错题本</td><td><code>/review:errors list</code></td></tr>
+    <tr><td>生成思维导图</td><td><code>/review:summary mindmap 数据结构</code></td></tr>
+    <tr><td>考前1页速记单</td><td><code>/review:summary cheatsheet 数据结构</code></td></tr>
+    <tr><td>对比易混淆概念</td><td><code>/review:summary compare 栈 vs 队列</code></td></tr>
+    <tr><td>查看复习进度</td><td><code>/review:progress</code></td></tr>
+    <tr><td>设置考试日期</td><td><code>/review:progress set-exam 数据结构 2026-07-05</code></td></tr>
+    <tr><td>生成每日计划</td><td><code>/review:schedule</code></td></tr>
+    <tr><td>扫描资料盲区</td><td><code>/review:material scan</code></td></tr>
+  </table>
+</div>`,
+
+// ─── FLOWS ──────────────────────────────────
+flows: () => `
+<div class="panel">
+  <h2>🔄 核心交互流程</h2>
+
+  <h3>1️⃣ 完整复习闭环</h3>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">flowchart LR
+    A[📚 提交资料] --> B[🔍 AI解析知识点]
+    B --> C[✍️ 测验出题]
+    C --> D{答题结果}
+    D -->|✅ 正确| E[记录进度]
+    D -->|❌ 错误| F[📝 错题入库]
+    F --> G[🎯 薄弱点专练]
+    G --> C
+    E --> H[📊 更新掌握度]
+    H --> I{所有章节OK?}
+    I -->|否| J[🧠 知识总结]
+    J --> C
+    I -->|是| K[🎉 模拟考冲刺]
+    style A fill:#38bdf8,color:#000
+    style C fill:#fbbf24,color:#000
+    style F fill:#f87171,color:#000
+    style K fill:#4ade80,color:#000</pre>
+  </div>
+
+  <h3>2️⃣ 三种备考节奏</h3>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">flowchart TD
+    subgraph 冲刺["🔴 1周冲刺"]
+      S1["/quiz weak<br/>薄弱点专练"] --> S2["/quiz quick<br/>闪卡速刷"]
+      S2 --> S3["/summary cheatsheet<br/>考前速记单"]
+      S3 --> S4["/quiz mixed<br/>全真模拟卷"]
+    end
+    subgraph 系统["🟡 2-4周系统复习"]
+      M1["/quiz concept<br/>逐章概念抽背"] --> M2["/summary mindmap<br/>思维导图"]
+      M2 --> M3["/quiz mixed<br/>每周综合测"]
+      M3 --> M4["/errors review<br/>错题重做"]
+    end
+    subgraph 长期["🟢 长期备考"]
+      L1["/quiz concept<br/>全面覆盖"] --> L2["/summary chain<br/>知识链串联"]
+      L2 --> L3["⏰ 间隔重复<br/>Cron定时提醒"]
+      L3 --> L1
+    end
+    style 冲刺 fill:#fef2f2,color:#991b1b
+    style 系统 fill:#fffbeb,color:#92400e
+    style 长期 fill:#f0fdf4,color:#166534</pre>
+  </div>
+
+  <h3>3️⃣ 一次典型测验的交互序列</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="num">1</div><div class="label">用户选择<br/>科目+模式</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">2</div><div class="label">AI读取<br/>资料+题库</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">3</div><div class="label">AI<br/>生成题目</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">4</div><div class="label">用户<br/>作答</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">5</div><div class="label">AI评分<br/>+详解</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">6</div><div class="label">错题<br/>自动入库</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="num">7</div><div class="label">下题/结束<br/>输出小结</div></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>⏱️ 错题追踪生命周期</h2>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">stateDiagram-v2
+    [*] --> 首次错误: 答题错误
+    首次错误 --> 记录入库: 自动写入error-log.md
+    记录入库 --> 等待重做: 标记错误类型
+    等待重做 --> 重做中: /errors review
+    重做中 --> 仍错误: 答错
+    仍错误 --> 等待重做: 错误次数+1
+    重做中 --> 部分正确: 部分答对
+    部分正确 --> 等待重做: 降低优先级
+    重做中 --> 连续正确: 连续3次答对
+    连续正确 --> 已清除: 从错题本移除
+    已清除 --> [*]</pre>
+  </div>
+</div>`,
+
+// ─── ARCHITECTURE ────────────────────────────
+architecture: () => `
+<div class="panel">
+  <h2>🏗️ 系统架构图</h2>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">flowchart TB
+    subgraph UI["👤 用户界面层"]
+      skill["/review Skill<br/>统一命令入口"]
+    end
+
+    subgraph modules["🧩 五大功能模块"]
+      direction LR
+      M1["📚 材料管理<br/>add/list/delete/scan"]
+      M2["✍️ 测验抽背<br/>6种出题模式"]
+      M3["📝 错题追踪<br/>自动记录+统计"]
+      M4["🧠 知识总结<br/>思维导图+速记"]
+      M5["📈 进度看板<br/>掌握度+建议"]
+    end
+
+    subgraph infra["⚙️ 基础设施"]
+      direction LR
+      FS["📁 文件系统<br/>~/review-assistant/"]
+      MEM["🧩 Memory系统<br/>配置+状态持久化"]
+      CRON["⏰ Cron定时<br/>间隔重复提醒"]
+      AGENT["🤖 Agent工具<br/>出题/批改/总结"]
+    end
+
+    UI --> M1
+    UI --> M2
+    UI --> M3
+    UI --> M4
+    UI --> M5
+
+    M1 --> FS
+    M2 --> FS
+    M3 --> FS
+    M4 --> FS
+    M5 --> FS
+
+    M1 -.-> MEM
+    M3 -.-> MEM
+    M5 -.-> MEM
+
+    M2 --> AGENT
+    M4 --> AGENT
+
+    M2 -.-> CRON
+    M3 -.-> CRON
+
+    style UI fill:#e0f2fe,color:#0369a1
+    style modules fill:#fdf4ff,color:#86198f
+    style infra fill:#f0fdf4,color:#166534</pre>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>🔗 数据流全景</h2>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">flowchart LR
+    subgraph input["📥 输入"]
+      FILES["课件/笔记<br/>.md .txt .pdf"]
+      TEXT["手动粘贴<br/>文本内容"]
+    end
+
+    subgraph storage["💾 持久层"]
+      MAT["materials/<br/>原始资料+知识点摘要"]
+      BANK["banks/<br/>AI生成题库"]
+      ERR["errors/<br/>错题本"]
+      SUM["summaries/<br/>知识总结"]
+      PROG["progress/<br/>进度看板"]
+      MEMORY["Memory<br/>配置+状态"]
+    end
+
+    subgraph output["📤 输出"]
+      QUIZ["测验题目<br/>+评分纠错"]
+      MINDMAP["思维导图<br/>Mermaid格式"]
+      CHEAT["考前速记单<br/>1页精华"]
+      STATS["统计分析<br/>薄弱点排行"]
+      PLAN["复习计划<br/>每日安排"]
+    end
+
+    input --> MAT
+    MAT --> BANK
+    MAT --> QUIZ
+    BANK --> QUIZ
+    QUIZ -->|错题| ERR
+    ERR --> STATS
+    MAT --> MINDMAP
+    MAT --> CHEAT
+    ERR --> CHEAT
+    MAT --> PLAN
+    PROG --> PLAN
+    QUIZ --> PROG
+    STATS --> PROG
+    PROG --> MEMORY
+    ERR --> MEMORY
+
+    style input fill:#fef3c7,color:#92400e
+    style storage fill:#dbeafe,color:#1e40af
+    style output fill:#d1fae5,color:#065f46</pre>
+  </div>
+</div>`,
+
+// ─── FILES ──────────────────────────────────
+files: () => `
+<div class="panel">
+  <h2>📁 文件地图</h2>
+  <div style="background:#fff;border-radius:8px;padding:20px;margin:12px 0;">
+    <pre class="mermaid-code">graph TB
+    ROOT["~/"] --> RA["review-assistant/"]
+    ROOT --> CLAUDE[".claude/"]
+    RA --> MAT["materials/<br/>📂 按科目分文件夹"]
+    RA --> BANK["banks/<br/>📂 题库(按科目)"]
+    RA --> ERR_D["errors/"]
+    RA --> SUM_D["summaries/"]
+    RA --> PROG_D["progress/"]
+    RA --> SCH_D["schedule/"]
+    ERR_D --> ERR_LOG["error-log.md<br/>📄 错题总索引"]
+    ERR_D --> BY_TOPIC["by-topic/<br/>📂 按知识点分类"]
+    SUM_D --> MM["mindmaps/<br/>📂 思维导图"]
+    SUM_D --> CS["cheat-sheets/<br/>📂 速记单"]
+    PROG_D --> PROG_F["progress.md<br/>📄 进度看板"]
+    SCH_D --> PLAN_F["plan.md<br/>📄 复习计划"]
+    CLAUDE --> SKILLS["skills/"]
+    CLAUDE --> MEM_D["projects/-home-yklbz/memory/"]
+    SKILLS --> REV_MD["review.md<br/>⭐ 核心Skill定义"]
+    MEM_D --> MEM1["review-assistant-config.md<br/>🧩 系统配置"]
+    MEM_D --> MEM2["review-assistant-state.md<br/>🧩 运行时状态"]
+
+    style REV_MD fill:#fbbf24,color:#000,stroke:#f59e0b,stroke-width:3px
+    style RA fill:#38bdf8,color:#000
+    style MAT fill:#e2e8f0,color:#334155
+    style BANK fill:#e2e8f0,color:#334155
+    style ERR_LOG fill:#fecaca,color:#991b1b
+    style PROG_F fill:#bbf7d0,color:#166534
+    style MEM1 fill:#e9d5ff,color:#6b21a8
+    style MEM2 fill:#e9d5ff,color:#6b21a8</pre>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>📊 关键文件速查</h2>
+  <table>
+    <tr><th>文件</th><th>类型</th><th>用途</th><th>修改影响</th></tr>
+    <tr>
+      <td><code>~/.claude/skills/review.md</code></td>
+      <td><span class="tag tag-a">⭐ Skill定义</span></td>
+      <td>全部子命令的行为逻辑</td>
+      <td>修改此处即可调整任何功能</td>
+    </tr>
+    <tr>
+      <td><code>~/review-assistant/materials/</code></td>
+      <td>📂 目录</td>
+      <td>用户提交的原始资料</td>
+      <td>增删资料直接影响出题内容</td>
+    </tr>
+    <tr>
+      <td><code>~/review-assistant/errors/error-log.md</code></td>
+      <td>📄 数据</td>
+      <td>错题总索引</td>
+      <td>weak模式和stats的数据源</td>
+    </tr>
+    <tr>
+      <td><code>~/review-assistant/progress/progress.md</code></td>
+      <td>📄 数据</td>
+      <td>进度看板</td>
+      <td>进度追踪和计划生成依据</td>
+    </tr>
+    <tr>
+      <td><code>~/review-assistant/schedule/plan.md</code></td>
+      <td>📄 数据</td>
+      <td>复习计划</td>
+      <td>每日复习安排</td>
+    </tr>
+    <tr>
+      <td><code>review-assistant-config.md</code></td>
+      <td>🧩 Memory</td>
+      <td>科目注册+考试日期</td>
+      <td>跨会话持久化配置</td>
+    </tr>
+    <tr>
+      <td><code>review-assistant-state.md</code></td>
+      <td>🧩 Memory</td>
+      <td>会话状态+进度</td>
+      <td>支持中断后恢复上下文</td>
+    </tr>
+  </table>
+</div>`,
+
+// ─── CONFIG ──────────────────────────────────
+config: () => `
+<div class="panel">
+  <h2>⚙️ 配置面板</h2>
+  <p style="color:var(--dim);margin-bottom:16px">以下是当前系统的可调整参数，修改 Skill 文件中对应的指令即可生效。</p>
+
+  <h3>🧩 全局参数</h3>
+  <table>
+    <tr><th>参数</th><th>默认值</th><th>位置</th><th>说明</th></tr>
+    <tr><td>交互语言</td><td>中文</td><td>review.md "核心原则"</td><td>所有对话输出语言</td></tr>
+    <tr><td>默认出题模式</td><td>concept</td><td>Memory config</td><td>无指定模式时的默认行为</td></tr>
+    <tr><td>每轮题数</td><td>5</td><td>Memory config</td><td>quiz 默认一轮出几题</td></tr>
+    <tr><td>连续正确清除阈值</td><td>3次</td><td>review.md "errors clear"</td><td>几次连续正确后清除错题</td></tr>
+    <tr><td>阶段小结间隔</td><td>5题</td><td>review.md "quiz concept"</td><td>每N题输出阶段性小结</td></tr>
+    <tr><td>混合卷默认题数</td><td>10</td><td>review.md "quiz mixed"</td><td>模拟卷默认出题数</td></tr>
+    <tr><td>闪卡每轮张数</td><td>10</td><td>review.md "quiz quick"</td><td>速刷模式每轮卡片数</td></tr>
+  </table>
+
+  <h3>📂 路径参数</h3>
+  <table>
+    <tr><th>路径</th><th>说明</th></tr>
+    <tr><td><code>~/review-assistant/</code></td><td>工作空间根目录</td></tr>
+    <tr><td><code>~/review-assistant/materials/</code></td><td>资料库</td></tr>
+    <tr><td><code>~/review-assistant/banks/</code></td><td>题库</td></tr>
+    <tr><td><code>~/review-assistant/errors/</code></td><td>错题本</td></tr>
+    <tr><td><code>~/review-assistant/summaries/</code></td><td>总结输出</td></tr>
+    <tr><td><code>~/review-assistant/progress/</code></td><td>进度数据</td></tr>
+    <tr><td><code>~/review-assistant/schedule/</code></td><td>计划数据</td></tr>
+    <tr><td><code>~/.claude/projects/-home-yklbz/memory/</code></td><td>Memory 持久化</td></tr>
+  </table>
+
+  <h3>🔧 修改方式</h3>
+  <p style="color:var(--dim)">直接编辑 <code>~/.claude/skills/review.md</code> 中的对应段落即可。修改后下次 <code>/review</code> 命令自动生效。</p>
+</div>`
+};
+
+// ========== Init with overview ==========
+document.getElementById('main').innerHTML = views.overview();
+</script>
+</body>
+</html>

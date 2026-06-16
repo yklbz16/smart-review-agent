@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全科复习智能体</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+// 初始化 Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+  mindmap: { useMaxWidth: true }
+});
+</script>
+</head>
+<body>
+
+<!-- 侧边栏 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span>🎓</span>
+    <span>全科复习智能体</span>
+  </div>
+  <nav class="sidebar-nav" id="sidebar-nav">
+    <!-- 由 app.js 动态渲染 -->
+  </nav>
+  <div class="sidebar-footer">
+    <div class="text-sm text-dim" style="text-align:center">
+      <span class="status-dot online" id="model-status-dot"></span>
+      <span id="model-status-text">就绪</span>
+    </div>
+  </div>
+</aside>
+
+<!-- 主内容区 -->
+<main class="main" id="main-content">
+  <!-- 由 app.js 动态渲染 -->
+</main>
+
+<!-- Toast 容器 -->
+<div id="toast-container"></div>
+
+<!-- Scripts -->
+<script src="/js/api.js"></script>
+<script src="/js/components/settings.js"></script>
+<script src="/js/components/materials.js"></script>
+<script src="/js/components/quiz.js"></script>
+<script src="/js/components/errors.js"></script>
+<script src="/js/components/summaries.js"></script>
+<script src="/js/components/progress.js"></script>
+<script src="/js/components/schedule.js"></script>
+<script src="/js/app.js"></script>
+
+<!-- 启动时加载模型状态 -->
+<script>
+// 扩展 App.init，添加模型状态检查
+var _origInit = App.init.bind(App);
+App.init = function() {
+  _origInit();
+  this.checkModelStatus();
+};
+
+App.checkModelStatus = function() {
+  API.getConfig().then(function(config) {
+    var dot = document.getElementById('model-status-dot');
+    var text = document.getElementById('model-status-text');
+    if (config && config.provider) {
+      if (dot) dot.className = 'status-dot online';
+      if (text) text.textContent = config.provider + ' / ' + (config.model || '...');
+    }
+  }).catch(function() {
+    var text = document.getElementById('model-status-text');
+    if (text) text.textContent = '未配置';
+  });
+};
+</script>
+
+</body>
+</html>
